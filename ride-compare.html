@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RideCompare</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a24;
+    --surface2: #22222f;
+    --border: #2e2e3f;
+    --text: #f0f0f8;
+    --muted: #8888a8;
+    --accent: #6c6fff;
+    --uber: #000000;
+    --lyft: #FF00BF;
+    --waymo: #00C2B3;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+  }
+
+  .app {
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #6c6fff, #b06cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+
+  .input-row:last-of-type { margin-bottom: 0; }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 13px;
+  }
+
+  .dot.pickup { background: #6c6fff; }
+  .dot.dropoff { background: #ff6c9d; }
+
+  .connector {
+    position: absolute;
+    left: 4px;
+    top: 26px;
+    width: 2px;
+    height: calc(100% - 2px);
+    background: linear-gradient(to bottom, #6c6fff, #ff6c9d);
+    opacity: 0.4;
+  }
+
+  .field-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 36px 10px 12px;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+
+  input[type="text"]::placeholder {
+    color: var(--muted);
+  }
+
+  .clear-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 4px;
+    display: none;
+    line-height: 1;
+  }
+
+  .clear-btn.visible { display: block; }
+
+  .autocomplete-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    display: none;
+  }
+
+  .autocomplete-list.open { display: block; }
+
+  .autocomplete-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover { background: var(--surface2); }
+
+  .autocomplete-item .main { color: var(--text); font-weight: 500; }
+  .autocomplete-item .sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+
+  .geo-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 12px;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: border-color 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .geo-btn:hover { border-color: var(--accent); color: var(--text); }
+  .geo-btn.loading { color: var(--accent); }
+
+  .geo-label {
+    font-size: 11px;
+    font-weight: 600;
+    display: none;
+  }
+
+  /* Ride type selector */
+  .ride-types {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .ride-type-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .ride-type-btn.active {
+    border-color: var(--accent);
+    background: rgba(108, 111, 255, 0.12);
+  }
+
+  .ride-type-btn .icon { font-size: 22px; display: block; margin-bottom: 4px; }
+  .ride-type-btn .name { font-size: 12px; font-weight: 600; color: var(--text); display: block; }
+  .ride-type-btn .desc { font-size: 10px; color: var(--muted); display: block; margin-top: 1px; }
+
+  /* Compare button */
+  .compare-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #6c6fff, #b06cff);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-bottom: 16px;
+  }
+
+  .compare-btn:hover { opacity: 0.9; }
+  .compare-btn:active { transform: scale(0.99); }
+  .compare-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Service cards */
+  .services { display: flex; flex-direction: column; gap: 10px; }
+
+  .service-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .service-card.visible { display: block; }
+
+  .service-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .service-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  .service-logo.uber { background: #000; color: #fff; font-size: 13px; letter-spacing: -0.5px; }
+  .service-logo.lyft { background: #FF00BF; color: #fff; font-size: 13px; }
+  .service-logo.waymo { background: #00C2B3; color: #fff; font-size: 13px; }
+
+  .service-info { flex: 1; }
+  .service-name { font-size: 16px; font-weight: 700; }
+  .service-ride-type { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  .service-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(108, 111, 255, 0.15);
+    color: var(--accent);
+    display: none;
+  }
+
+  .service-badge.best {
+    display: block;
+    background: rgba(108, 111, 255, 0.2);
+    color: #6c6fff;
+  }
+
+  .service-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .open-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .open-btn:hover { opacity: 0.85; }
+
+  .open-btn.primary-uber { background: #000; color: #fff; }
+  .open-btn.primary-lyft { background: #FF00BF; color: #fff; }
+  .open-btn.primary-waymo { background: #00C2B3; color: #fff; }
+
+  .open-btn.secondary {
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  .waymo-notice {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 8px 16px 14px;
+    line-height: 1.5;
+  }
+
+  .waymo-cities {
+    color: var(--waymo);
+    font-weight: 600;
+  }
+
+  /* Status */
+  .status-bar {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    padding: 10px;
+    display: none;
+  }
+
+  .status-bar.visible { display: block; }
+
+  .trip-summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    display: none;
+  }
+
+  .trip-summary.visible { display: block; }
+  .trip-summary strong { color: var(--text); }
+
+  .instructions {
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .instructions .step {
+    display: inline-block;
+    background: var(--surface2);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-right: 6px;
+  }
+
+  @media (max-width: 400px) {
+    .ride-types { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>🚗 RideCompare</h1>
+    <p>Enter your trip — open all services instantly</p>
+  </header>
+
+  <!-- Trip inputs -->
+  <div class="card">
+    <h2>Your Trip</h2>
+
+    <div style="position:relative;">
+      <div class="connector"></div>
+
+      <div class="input-row">
+        <div class="dot pickup" style="margin-left:4px;"></div>
+        <div class="field-wrap" style="position:relative;">
+          <input type="text" id="pickup-input" placeholder="Pickup location" autocomplete="off" />
+          <button class="clear-btn" id="pickup-clear" onclick="clearField('pickup')">✕</button>
+          <div class="autocomplete-list" id="pickup-suggestions"></div>
+        </div>
+        <button class="geo-btn" id="geo-btn" onclick="useGeolocation()" title="Use my location">
+          📍<span class="geo-label">GPS</span>
+        </button>
+      </div>
+
+      <div class="input-row" style="margin-top:8px;">
+        <div class="dot dropoff" style="margin-left:4px;"></div>
+        <div class="field-wrap" style="position:relative;">
+          <input type="text" id="dropoff-input" placeholder="Where to?" autocomplete="off" />
+          <button class="clear-btn" id="dropoff-clear" onclick="clearField('dropoff')">✕</button>
+          <div class="autocomplete-list" id="dropoff-suggestions"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ride type -->
+  <div class="card">
+    <h2>Ride Type</h2>
+    <div class="ride-types" id="ride-types"></div>
+  </div>
+
+  <!-- Compare button -->
+  <button class="compare-btn" id="compare-btn" onclick="compare()" disabled>
+    Compare All Services
+  </button>
+
+  <div class="status-bar" id="status-bar"></div>
+  <div class="trip-summary" id="trip-summary"></div>
+
+  <!-- Service cards -->
+  <div class="services">
+    <div class="service-card" id="uber-card">
+      <div class="service-header">
+        <div class="service-logo uber">UBER</div>
+        <div class="service-info">
+          <div class="service-name">Uber</div>
+          <div class="service-ride-type" id="uber-ride-label">—</div>
+        </div>
+        <div class="service-badge" id="uber-badge">BEST</div>
+      </div>
+      <div class="service-actions">
+        <button class="open-btn primary-uber" id="uber-open" onclick="openService('uber')">Open in Uber →</button>
+        <button class="open-btn secondary" onclick="openServiceWeb('uber')">Web ↗</button>
+      </div>
+    </div>
+
+    <div class="service-card" id="lyft-card">
+      <div class="service-header">
+        <div class="service-logo lyft">LYFT</div>
+        <div class="service-info">
+          <div class="service-name">Lyft</div>
+          <div class="service-ride-type" id="lyft-ride-label">—</div>
+        </div>
+        <div class="service-badge" id="lyft-badge">BEST</div>
+      </div>
+      <div class="service-actions">
+        <button class="open-btn primary-lyft" id="lyft-open" onclick="openService('lyft')">Open in Lyft →</button>
+        <button class="open-btn secondary" onclick="openServiceWeb('lyft')">Web ↗</button>
+      </div>
+    </div>
+
+    <div class="service-card" id="waymo-card">
+      <div class="service-header">
+        <div class="service-logo waymo">W</div>
+        <div class="service-info">
+          <div class="service-name">Waymo One</div>
+          <div class="service-ride-type">Autonomous · Select cities only</div>
+        </div>
+      </div>
+      <div class="service-actions">
+        <button class="open-btn primary-waymo" onclick="openWaymo()">Open Waymo One →</button>
+      </div>
+      <div class="waymo-notice">
+        Waymo operates in <span class="waymo-cities">SF Bay Area, Phoenix, LA, Austin</span>.
+        No public pricing API — opens the Waymo app directly.
+      </div>
+    </div>
+  </div>
+
+  <div class="instructions" id="instructions">
+    <p>
+      <span class="step">1</span>Enter your pickup &amp; destination<br>
+      <span class="step">2</span>Choose your ride type<br>
+      <span class="step">3</span>Open each service to compare live prices
+    </p>
+    <p style="margin-top:12px; font-size:11px; opacity:0.6;">
+      Live prices aren't available via public API.<br>Each service opens pre-filled with your trip.
+    </p>
+  </div>
+
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  pickup: null,   // { lat, lng, name }
+  dropoff: null,  // { lat, lng, name }
+  rideType: 'standard'
+};
+
+// ── Ride Types ───────────────────────────────────────────────────────────────
+const rideTypes = [
+  {
+    id: 'standard',
+    icon: '🚗',
+    name: 'Standard',
+    desc: '1–4 riders',
+    uber: { name: 'UberX', id: 'uberx' },
+    lyft: { name: 'Lyft', id: 'lyft' }
+  },
+  {
+    id: 'comfort',
+    icon: '🛋️',
+    name: 'Comfort',
+    desc: 'Extra legroom',
+    uber: { name: 'Uber Comfort', id: 'comfort' },
+    lyft: { name: 'Lyft Comfort', id: 'lyft_comfort' }
+  },
+  {
+    id: 'xl',
+    icon: '🚐',
+    name: 'XL',
+    desc: 'Up to 6 riders',
+    uber: { name: 'UberXL', id: 'uberxl' },
+    lyft: { name: 'Lyft XL', id: 'lyft_suv' }
+  },
+  {
+    id: 'lux',
+    icon: '✨',
+    name: 'Lux',
+    desc: 'Premium sedan',
+    uber: { name: 'Uber Black', id: 'black' },
+    lyft: { name: 'Lyft Lux', id: 'lyft_lux' }
+  },
+  {
+    id: 'lux_suv',
+    icon: '🚙',
+    name: 'Lux SUV',
+    desc: 'Premium SUV',
+    uber: { name: 'Uber Black SUV', id: 'suv' },
+    lyft: { name: 'Lux Black XL', id: 'lyft_luxsuv' }
+  },
+  {
+    id: 'shared',
+    icon: '🤝',
+    name: 'Shared',
+    desc: 'Split the cost',
+    uber: { name: 'UberX Share', id: 'uberx_share' },
+    lyft: { name: 'Lyft Share', id: 'lyft_line' }
+  }
+];
+
+// ── Render ride types ────────────────────────────────────────────────────────
+function renderRideTypes() {
+  const container = document.getElementById('ride-types');
+  container.innerHTML = rideTypes.map(rt => `
+    <button class="ride-type-btn ${rt.id === state.rideType ? 'active' : ''}"
+            onclick="selectRideType('${rt.id}')">
+      <span class="icon">${rt.icon}</span>
+      <span class="name">${rt.name}</span>
+      <span class="desc">${rt.desc}</span>
+    </button>
+  `).join('');
+}
+
+function selectRideType(id) {
+  state.rideType = id;
+  renderRideTypes();
+  updateCompareBtn();
+}
+
+// ── Geocoding (OpenStreetMap Nominatim) ──────────────────────────────────────
+let debounceTimers = {};
+
+async function geocodeSearch(query, listId) {
+  if (query.length < 3) {
+    hideList(listId);
+    return;
+  }
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const data = await res.json();
+    renderSuggestions(data, listId);
+  } catch (e) {
+    hideList(listId);
+  }
+}
+
+function renderSuggestions(results, listId) {
+  const list = document.getElementById(listId);
+  if (!results.length) { list.classList.remove('open'); return; }
+
+  list.innerHTML = results.map((r, i) => {
+    const parts = r.display_name.split(', ');
+    const main = parts.slice(0, 2).join(', ');
+    const sub = parts.slice(2, 4).join(', ');
+    return `<div class="autocomplete-item" onclick="selectPlace(${i}, '${listId}')">
+      <div class="main">${main}</div>
+      ${sub ? `<div class="sub">${sub}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  list._data = results;
+  list.classList.add('open');
+}
+
+function selectPlace(idx, listId) {
+  const list = document.getElementById(listId);
+  const r = list._data[idx];
+  const name = r.display_name.split(', ').slice(0, 3).join(', ');
+  const place = { lat: parseFloat(r.lat), lng: parseFloat(r.lon), name };
+
+  if (listId === 'pickup-suggestions') {
+    state.pickup = place;
+    document.getElementById('pickup-input').value = name;
+    showClear('pickup');
+  } else {
+    state.dropoff = place;
+    document.getElementById('dropoff-input').value = name;
+    showClear('dropoff');
+  }
+
+  hideList(listId);
+  updateCompareBtn();
+}
+
+function hideList(listId) {
+  document.getElementById(listId).classList.remove('open');
+}
+
+function showClear(field) {
+  const btn = document.getElementById(`${field}-clear`);
+  if (btn) btn.classList.add('visible');
+}
+
+function clearField(field) {
+  state[field] = null;
+  document.getElementById(`${field}-input`).value = '';
+  document.getElementById(`${field}-clear`).classList.remove('visible');
+  updateCompareBtn();
+  hideList(`${field}-suggestions`);
+}
+
+// Bind input events
+['pickup', 'dropoff'].forEach(field => {
+  const input = document.getElementById(`${field}-input`);
+  input.addEventListener('input', (e) => {
+    const val = e.target.value.trim();
+    if (val) showClear(field); else document.getElementById(`${field}-clear`).classList.remove('visible');
+    // debounce
+    clearTimeout(debounceTimers[field]);
+    debounceTimers[field] = setTimeout(() => geocodeSearch(val, `${field}-suggestions`), 350);
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => hideList(`${field}-suggestions`), 200);
+  });
+});
+
+// ── Geolocation ──────────────────────────────────────────────────────────────
+function useGeolocation() {
+  if (!navigator.geolocation) {
+    alert('Geolocation is not supported by your browser.');
+    return;
+  }
+  const btn = document.getElementById('geo-btn');
+  btn.classList.add('loading');
+  btn.textContent = '⏳';
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        const data = await res.json();
+        const name = data.display_name.split(', ').slice(0, 3).join(', ');
+        state.pickup = { lat, lng, name };
+        document.getElementById('pickup-input').value = name;
+        showClear('pickup');
+        updateCompareBtn();
+      } catch (e) {
+        state.pickup = { lat, lng, name: `${lat.toFixed(4)}, ${lng.toFixed(4)}` };
+        document.getElementById('pickup-input').value = state.pickup.name;
+        updateCompareBtn();
+      }
+      btn.classList.remove('loading');
+      btn.textContent = '📍';
+    },
+    (err) => {
+      btn.classList.remove('loading');
+      btn.textContent = '📍';
+      alert('Could not get your location. Please enter it manually.');
+    }
+  );
+}
+
+// ── Deep links ───────────────────────────────────────────────────────────────
+function buildUberURL(appScheme) {
+  const { pickup, dropoff, rideType } = state;
+  const rt = rideTypes.find(r => r.id === rideType);
+
+  if (appScheme) {
+    // Try to open in Uber app
+    return `uber://?action=setPickup`
+      + `&pickup[latitude]=${pickup.lat}&pickup[longitude]=${pickup.lng}&pickup[nickname]=${encodeURIComponent(pickup.name)}`
+      + `&dropoff[latitude]=${dropoff.lat}&dropoff[longitude]=${dropoff.lng}&dropoff[nickname]=${encodeURIComponent(dropoff.name)}`;
+  } else {
+    return `https://m.uber.com/ul/?action=setPickup`
+      + `&pickup[latitude]=${pickup.lat}&pickup[longitude]=${pickup.lng}&pickup[nickname]=${encodeURIComponent(pickup.name)}`
+      + `&dropoff[latitude]=${dropoff.lat}&dropoff[longitude]=${dropoff.lng}&dropoff[nickname]=${encodeURIComponent(dropoff.name)}`;
+  }
+}
+
+function buildLyftURL(appScheme) {
+  const { pickup, dropoff, rideType } = state;
+  const rt = rideTypes.find(r => r.id === rideType);
+
+  if (appScheme) {
+    return `lyft://ridetype?id=${rt.lyft.id}`
+      + `&pickup[latitude]=${pickup.lat}&pickup[longitude]=${pickup.lng}`
+      + `&destination[latitude]=${dropoff.lat}&destination[longitude]=${dropoff.lng}`;
+  } else {
+    return `https://ride.lyft.com/ridetype?id=${rt.lyft.id}`
+      + `&pickup[latitude]=${pickup.lat}&pickup[longitude]=${pickup.lng}`
+      + `&pickup[address]=${encodeURIComponent(pickup.name)}`
+      + `&destination[latitude]=${dropoff.lat}&destination[longitude]=${dropoff.lng}`
+      + `&destination[address]=${encodeURIComponent(dropoff.name)}`;
+  }
+}
+
+function openService(service) {
+  // Try app scheme first, fall back to web
+  let appUrl, webUrl;
+  if (service === 'uber') {
+    appUrl = buildUberURL(true);
+    webUrl = buildUberURL(false);
+  } else {
+    appUrl = buildLyftURL(true);
+    webUrl = buildLyftURL(false);
+  }
+
+  // On mobile, try app scheme; on desktop, use web
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    // Try app, fallback to web after timeout
+    window.location.href = appUrl;
+    setTimeout(() => window.open(webUrl, '_blank'), 1500);
+  } else {
+    window.open(webUrl, '_blank');
+  }
+}
+
+function openServiceWeb(service) {
+  const url = service === 'uber' ? buildUberURL(false) : buildLyftURL(false);
+  window.open(url, '_blank');
+}
+
+function openWaymo() {
+  // Waymo One app deep link
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.location.href = 'waymoone://';
+    setTimeout(() => window.open('https://waymo.com/waymo-one/', '_blank'), 1500);
+  } else {
+    window.open('https://waymo.com/waymo-one/', '_blank');
+  }
+}
+
+// ── Compare ──────────────────────────────────────────────────────────────────
+function compare() {
+  if (!state.pickup || !state.dropoff) return;
+
+  const rt = rideTypes.find(r => r.id === state.rideType);
+
+  // Update labels
+  document.getElementById('uber-ride-label').textContent = rt.uber.name;
+  document.getElementById('lyft-ride-label').textContent = rt.lyft.name;
+
+  // Show cards
+  document.getElementById('uber-card').classList.add('visible');
+  document.getElementById('lyft-card').classList.add('visible');
+  document.getElementById('waymo-card').classList.add('visible');
+  document.getElementById('instructions').style.display = 'none';
+
+  // Trip summary
+  const summary = document.getElementById('trip-summary');
+  summary.classList.add('visible');
+  summary.innerHTML = `
+    <strong>From:</strong> ${state.pickup.name}<br>
+    <strong>To:</strong> ${state.dropoff.name}<br>
+    <strong>Type:</strong> ${rt.name} — Open each app below to compare live prices.
+  `;
+}
+
+function updateCompareBtn() {
+  const btn = document.getElementById('compare-btn');
+  btn.disabled = !(state.pickup && state.dropoff);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+renderRideTypes();
+</script>
+</body>
+</html>
