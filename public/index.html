@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RideCompare">
+<title>RideCompare</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f13;
+  --surface: #1a1a24;
+  --surface2: #22222f;
+  --border: #2e2e3f;
+  --text: #f0f0f8;
+  --muted: #8888a8;
+  --accent: #6c6fff;
+  --lyft-color: #FF00BF;
+  --green: #22c55e;
+  --red: #ef4444;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* ── Layout ── */
+.app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 540px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 20px 16px calc(16px + var(--safe-bottom));
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #6c6fff, #b06cff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.new-trip-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: none;
+  transition: color 0.2s, border-color 0.2s;
+}
+.new-trip-btn:hover { color: var(--text); border-color: var(--accent); }
+.new-trip-btn.show { display: block; }
+
+/* ── Trip form ── */
+.trip-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.field-stack { display: flex; flex-direction: column; gap: 8px; }
+
+.field-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot.p { background: var(--accent); }
+.dot.d { background: #ff6c9d; }
+
+.vline {
+  position: absolute;
+  left: 4.5px; top: 22px;
+  width: 1px; height: calc(100% - 4px);
+  background: linear-gradient(to bottom, var(--accent), #ff6c9d);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.field-wrap { flex: 1; position: relative; }
+
+input[type="text"] {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 34px 11px 12px;
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+input[type="text"]:focus { border-color: var(--accent); }
+input[type="text"]::placeholder { color: var(--muted); }
+
+.clear-x {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--muted); cursor: pointer;
+  font-size: 14px; padding: 4px; line-height: 1;
+  display: none;
+}
+.clear-x.show { display: block; }
+
+.geo-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted); cursor: pointer;
+  padding: 0 11px; font-size: 16px;
+  height: 42px; flex-shrink: 0;
+  transition: border-color 0.2s, color 0.2s;
+  display: flex; align-items: center;
+}
+.geo-btn:hover { border-color: var(--accent); color: var(--text); }
+
+/* Autocomplete */
+.ac-wrap { position: relative; }
+.ac-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; z-index: 200;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5); overflow: hidden; display: none;
+}
+.ac-list.open { display: block; }
+.ac-item {
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item:active { background: var(--surface2); }
+.ac-main { font-size: 13px; font-weight: 500; color: var(--text); }
+.ac-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ── Ride types ── */
+.ride-types {
+  display: flex; gap: 6px;
+  overflow-x: auto; padding-bottom: 4px;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.ride-types::-webkit-scrollbar { display: none; }
+
+.rt {
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 8px 12px; cursor: pointer;
+  flex-shrink: 0; text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 60px;
+}
+.rt.active { border-color: var(--accent); background: rgba(108,111,255,0.12); }
+.rt-icon { font-size: 18px; display: block; }
+.rt-name { font-size: 11px; font-weight: 700; margin-top: 3px; display: block; color: var(--text); }
+
+/* ── Compare button ── */
+.compare-btn {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, #6c6fff, #b06cff);
+  border: none; border-radius: 12px; color: #fff;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.compare-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.compare-btn:not(:disabled):hover { opacity: 0.88; }
+.compare-btn:not(:disabled):active { transform: scale(0.98); }
+
+/* ── Loading states ── */
+.loading-row {
+  display: none; gap: 10px; margin-bottom: 12px;
+}
+.loading-row.show { display: flex; }
+
+.svc-loader {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px; text-align: center;
+}
+.svc-badge {
+  font-size: 11px; font-weight: 900; padding: 4px 8px;
+  border-radius: 6px; display: inline-block; margin-bottom: 8px;
+}
+.svc-badge.uber { background: #000; color: #fff; }
+.svc-badge.lyft { background: var(--lyft-color); color: #fff; }
+
+.svc-msg { font-size: 12px; color: var(--muted); }
+.svc-msg.loading::after {
+  content: '';
+  animation: dotdot 1.4s steps(4, end) infinite;
+}
+@keyframes dotdot {
+  0%   { content: '.'; }
+  33%  { content: '..'; }
+  66%  { content: '...'; }
+  100% { content: ''; }
+}
+
+/* ── Results ── */
+.results { display: none; flex-direction: column; gap: 10px; }
+.results.show { display: flex; }
+
+.best-banner {
+  background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+  border-radius: 12px; padding: 10px 14px;
+  font-size: 14px; font-weight: 700; color: var(--green);
+  text-align: center; display: none;
+}
+.best-banner.show { display: block; }
+
+.result-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+}
+.result-card.winner { border-color: var(--green); }
+
+.rc-top {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.rc-badge {
+  font-size: 11px; font-weight: 900; padding: 5px 9px;
+  border-radius: 7px; flex-shrink: 0;
+}
+.rc-badge.uber { background: #000; color: #fff; }
+.rc-badge.lyft { background: var(--lyft-color); color: #fff; }
+
+.rc-info { flex: 1; }
+.rc-svc-name { font-size: 15px; font-weight: 700; }
+.rc-ride-type { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.rc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.rc-price { font-size: 22px; font-weight: 800; }
+.rc-best-tag {
+  font-size: 10px; font-weight: 700; padding: 3px 7px;
+  border-radius: 5px; background: rgba(34,197,94,0.15); color: var(--green);
+  display: none;
+}
+.rc-best-tag.show { display: block; }
+
+/* All options chips */
+.price-chips {
+  padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 5px;
+}
+.chip {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 5px 9px; font-size: 11px;
+}
+.chip.hi { border-color: var(--accent); background: rgba(108,111,255,0.1); }
+.chip-name { color: var(--muted); }
+.chip-price { font-weight: 700; color: var(--text); }
+.chip.hi .chip-price { color: var(--accent); }
+
+/* Book link */
+.book-link {
+  display: block; margin: 0 14px 12px;
+  padding: 10px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 9px;
+  color: var(--muted); font-size: 12px; font-weight: 600;
+  text-align: center; text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+.book-link:hover { border-color: var(--accent); color: var(--text); }
+
+/* Error / login notice */
+.rc-notice {
+  padding: 10px 16px 14px; font-size: 12px; color: var(--muted);
+  line-height: 1.6; text-align: center;
+}
+.rc-notice a { color: var(--accent); text-decoration: none; }
+
+/* ── Cookie setup guide ── */
+.cookie-tip {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; margin-top: 10px;
+  font-size: 12px; color: var(--muted); line-height: 1.7;
+  display: none;
+}
+.cookie-tip.show { display: block; }
+.cookie-tip strong { color: var(--text); }
+.cookie-tip a { color: var(--accent); text-decoration: none; }
+
+/* ── Util ── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <span class="logo">🚗 RideCompare</span>
+    <button class="new-trip-btn" id="new-trip-btn" onclick="resetAll()">← New trip</button>
+  </header>
+
+  <!-- ── Trip form ── -->
+  <div id="trip-form">
+    <div class="trip-card">
+      <div class="field-stack">
+        <div class="vline"></div>
+
+        <div class="field-line">
+          <div class="dot p"></div>
+          <div class="field-wrap ac-wrap">
+            <input type="text" id="pickup-input" placeholder="Pickup location" autocomplete="off" autocorrect="off" spellcheck="false" />
+            <button class="clear-x" id="pickup-clear" onclick="clearField('pickup')">✕</button>
+            <div class="ac-list" id="pickup-ac"></div>
+          </div>
+          <button class="geo-btn" id="geo-btn" onclick="useGeo()" title="Use my location">📍</button>
+        </div>
+
+        <div class="field-line">
+          <div class="dot d"></div>
+          <div class="field-wrap ac-wrap">
+            <input type="text" id="dropoff-input" placeholder="Where to?" autocomplete="off" autocorrect="off" spellcheck="false" />
+            <button class="clear-x" id="dropoff-clear" onclick="clearField('dropoff')">✕</button>
+            <div class="ac-list" id="dropoff-ac"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ride-types" id="ride-types"></div>
+
+    <button class="compare-btn" id="compare-btn" onclick="compare()" disabled>
+      Compare Prices
+    </button>
+  </div>
+
+  <!-- ── Loading ── -->
+  <div class="loading-row" id="loading-row">
+    <div class="svc-loader">
+      <span class="svc-badge uber">UBER</span>
+      <div class="svc-msg loading" id="uber-msg">Fetching</div>
+    </div>
+    <div class="svc-loader">
+      <span class="svc-badge lyft">LYFT</span>
+      <div class="svc-msg loading" id="lyft-msg">Fetching</div>
+    </div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="results" id="results">
+    <div class="best-banner" id="best-banner"></div>
+    <div id="uber-card"></div>
+    <div id="lyft-card"></div>
+  </div>
+
+  <div class="cookie-tip" id="cookie-tip">
+    <strong>One-time login setup needed.</strong><br>
+    The server needs your Uber/Lyft session cookies to fetch prices.<br><br>
+    <strong>How to get them:</strong><br>
+    1. Log into <a href="https://m.uber.com" target="_blank">m.uber.com</a> in Chrome<br>
+    2. Open DevTools → Application → Cookies → m.uber.com<br>
+    3. Copy the full cookie string from the network tab (F12 → Network → any request → Request Headers → Cookie)<br>
+    4. Add it as <strong>UBER_COOKIES</strong> in your Railway environment variables<br>
+    5. Do the same for <a href="https://ride.lyft.com" target="_blank">ride.lyft.com</a> → <strong>LYFT_COOKIES</strong><br><br>
+    See DEPLOY.md for the full walkthrough.
+  </div>
+
+</div>
+
+<script>
+// ── Ride types ────────────────────────────────────────────────────────────────
+const RIDE_TYPES = [
+  { id:'standard', icon:'🚗', name:'Standard', uberNames:['UberX','Uber X','Uber'], lyftNames:['Lyft','Standard'], lyftId:'lyft' },
+  { id:'comfort',  icon:'🛋️', name:'Comfort',  uberNames:['Comfort'],               lyftNames:['Lyft Comfort','Comfort'], lyftId:'lyft_comfort' },
+  { id:'xl',       icon:'🚐', name:'XL',       uberNames:['UberXL','Uber XL','XL'], lyftNames:['Lyft XL','XL'],           lyftId:'lyft_suv' },
+  { id:'lux',      icon:'✨', name:'Lux',      uberNames:['Black','Uber Black'],    lyftNames:['Lyft Lux','Lux'],         lyftId:'lyft_lux' },
+  { id:'lux_suv',  icon:'🚙', name:'Lux SUV',  uberNames:['Black SUV','SUV'],       lyftNames:['Lux Black XL'],           lyftId:'lyft_luxsuv' },
+  { id:'shared',   icon:'🤝', name:'Shared',   uberNames:['Share','Pool'],          lyftNames:['Shared','Lyft Shared'],   lyftId:'lyft_line' },
+];
+
+const st = { pickup: null, dropoff: null, rideType: 'standard' };
+const deb = {};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderRideTypes();
+bindInputs();
+
+function renderRideTypes() {
+  document.getElementById('ride-types').innerHTML = RIDE_TYPES.map(rt => `
+    <div class="rt ${rt.id === st.rideType ? 'active' : ''}" onclick="pickRide('${rt.id}')">
+      <span class="rt-icon">${rt.icon}</span>
+      <span class="rt-name">${rt.name}</span>
+    </div>`).join('');
+}
+
+function pickRide(id) { st.rideType = id; renderRideTypes(); }
+
+// ── Address inputs ────────────────────────────────────────────────────────────
+function bindInputs() {
+  ['pickup','dropoff'].forEach(f => {
+    const el = document.getElementById(`${f}-input`);
+    el.addEventListener('input', e => {
+      const v = e.target.value.trim();
+      document.getElementById(`${f}-clear`).classList.toggle('show', !!v);
+      // Clear resolved place if user edits after picking
+      st[f] = null; updateBtn();
+      clearTimeout(deb[f]);
+      if (v.length >= 3) deb[f] = setTimeout(() => geocode(v, f), 380);
+      else closeAc(f);
+    });
+    // Pick first autocomplete result on Enter or on blur if nothing was selected
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); geocodeAndPick(el.value.trim(), f); }
+    });
+    el.addEventListener('blur', () => {
+      // If user typed something but never picked a suggestion, geocode it for them
+      setTimeout(() => {
+        closeAc(f);
+        if (!st[f] && el.value.trim().length >= 3) geocodeAndPick(el.value.trim(), f);
+      }, 250);
+    });
+  });
+}
+
+async function geocodeAndPick(q, field) {
+  if (!q) return;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, { headers:{'Accept-Language':'en'} });
+    const data = await r.json();
+    if (data.length) pickPlace(0, field, data);
+  } catch {}
+}
+
+async function geocode(q, field) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`, { headers:{'Accept-Language':'en'} });
+    renderAc(await r.json(), field);
+  } catch { closeAc(field); }
+}
+
+function renderAc(data, field) {
+  const list = document.getElementById(`${field}-ac`);
+  if (!data.length) { closeAc(field); return; }
+  list._data = data;
+  list.innerHTML = data.map((r,i) => {
+    const p = r.display_name.split(', ');
+    return `<div class="ac-item" onclick="pickPlace(${i},'${field}')">
+      <div class="ac-main">${p.slice(0,2).join(', ')}</div>
+      ${p[2]?`<div class="ac-sub">${p.slice(2,4).join(', ')}</div>`:''}
+    </div>`;
+  }).join('');
+  list.classList.add('open');
+}
+
+function pickPlace(i, field, overrideData) {
+  const list = document.getElementById(`${field}-ac`);
+  const r = (overrideData || list._data)[i];
+  const name = r.display_name.split(', ').slice(0,3).join(', ');
+  st[field] = { lat: parseFloat(r.lat), lng: parseFloat(r.lon), name };
+  document.getElementById(`${field}-input`).value = name;
+  document.getElementById(`${field}-clear`).classList.add('show');
+  closeAc(field);
+  updateBtn();
+}
+
+function clearField(f) {
+  st[f] = null;
+  document.getElementById(`${f}-input`).value = '';
+  document.getElementById(`${f}-clear`).classList.remove('show');
+  closeAc(f); updateBtn();
+}
+
+function closeAc(f) { document.getElementById(`${f}-ac`).classList.remove('open'); }
+
+function updateBtn() {
+  document.getElementById('compare-btn').disabled = !(st.pickup && st.dropoff);
+}
+
+// ── Geolocation ───────────────────────────────────────────────────────────────
+function useGeo() {
+  if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+  const btn = document.getElementById('geo-btn');
+  btn.textContent = '⏳';
+  navigator.geolocation.getCurrentPosition(async ({ coords: { latitude: lat, longitude: lng } }) => {
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, { headers:{'Accept-Language':'en'} });
+      const d = await r.json();
+      const name = d.display_name.split(', ').slice(0,3).join(', ');
+      st.pickup = { lat, lng, name };
+      document.getElementById('pickup-input').value = name;
+      document.getElementById('pickup-clear').classList.add('show');
+    } catch {
+      st.pickup = { lat, lng, name: `${lat.toFixed(5)}, ${lng.toFixed(5)}` };
+      document.getElementById('pickup-input').value = st.pickup.name;
+    }
+    btn.textContent = '📍'; updateBtn();
+  }, () => { btn.textContent = '📍'; alert('Could not get location.'); });
+}
+
+// ── Compare ───────────────────────────────────────────────────────────────────
+function compare() {
+  if (!st.pickup || !st.dropoff) return;
+  const rt = RIDE_TYPES.find(r => r.id === st.rideType);
+
+  const params = new URLSearchParams({
+    pickupLat:  st.pickup.lat,  pickupLng:  st.pickup.lng,  pickupName:  st.pickup.name,
+    dropoffLat: st.dropoff.lat, dropoffLng: st.dropoff.lng, dropoffName: st.dropoff.name,
+    rideType:   st.rideType,    lyftRideId: rt.lyftId,
+  });
+
+  // Show loading
+  document.getElementById('trip-form').classList.add('hidden');
+  document.getElementById('loading-row').classList.add('show');
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('cookie-tip').classList.remove('show');
+  document.getElementById('new-trip-btn').classList.add('show');
+  setMsg('uber', 'loading', 'Fetching');
+  setMsg('lyft', 'loading', 'Fetching');
+
+  const collected = {};
+
+  const es = new EventSource(`/api/compare?${params}`);
+
+  es.addEventListener('uber', e => {
+    collected.uber = JSON.parse(e.data);
+    setMsg('uber', collected.uber.status === 'ok' ? 'done' : 'error',
+      collected.uber.status === 'ok' ? `${collected.uber.prices.length} options found` : 'Not available');
+    if (collected.lyft) renderResults(collected, rt);
+  });
+
+  es.addEventListener('lyft', e => {
+    collected.lyft = JSON.parse(e.data);
+    setMsg('lyft', collected.lyft.status === 'ok' ? 'done' : 'error',
+      collected.lyft.status === 'ok' ? `${collected.lyft.prices.length} options found` : 'Not available');
+    if (collected.uber) renderResults(collected, rt);
+  });
+
+  es.onerror = () => {
+    es.close();
+    if (!collected.uber) collected.uber = { status: 'error', prices: [] };
+    if (!collected.lyft) collected.lyft = { status: 'error', prices: [] };
+    renderResults(collected, rt);
+  };
+}
+
+function setMsg(svc, cls, text) {
+  const el = document.getElementById(`${svc}-msg`);
+  el.className = `svc-msg ${cls}`;
+  el.textContent = text;
+}
+
+// ── Render results ─────────────────────────────────────────────────────────────
+function renderResults({ uber, lyft }, rt) {
+  document.getElementById('loading-row').classList.remove('show');
+  document.getElementById('results').classList.add('show');
+
+  const uberBest = findBest(uber.prices, rt.uberNames);
+  const lyftBest = findBest(lyft.prices, rt.lyftNames);
+
+  const uberMin = minPrice(uberBest?.price);
+  const lyftMin = minPrice(lyftBest?.price);
+
+  let winner = null;
+  if (uberMin !== Infinity && lyftMin !== Infinity) winner = uberMin <= lyftMin ? 'uber' : 'lyft';
+  else if (uberMin !== Infinity) winner = 'uber';
+  else if (lyftMin !== Infinity) winner = 'lyft';
+
+  const banner = document.getElementById('best-banner');
+  if (winner) {
+    const savings = winner === 'uber' && lyftMin !== Infinity
+      ? ` — saves $${(lyftMin - uberMin).toFixed(0)} vs Lyft`
+      : winner === 'lyft' && uberMin !== Infinity
+      ? ` — saves $${(uberMin - lyftMin).toFixed(0)} vs Uber`
+      : '';
+    banner.textContent = `${winner === 'uber' ? '⚫' : '🩷'} ${winner === 'uber' ? 'Uber' : 'Lyft'} is cheapest${savings}`;
+    banner.classList.add('show');
+  }
+
+  renderServiceCard('uber', uber, uberBest, rt, winner === 'uber', buildUberUrl());
+  renderServiceCard('lyft', lyft, lyftBest, rt, winner === 'lyft', buildLyftUrl(rt));
+
+  // Show cookie tip if login required on either side
+  const needsCookies = uber.status === 'login-required' || lyft.status === 'login-required';
+  document.getElementById('cookie-tip').classList.toggle('show', needsCookies);
+}
+
+function renderServiceCard(svc, data, best, rt, isWinner, openUrl) {
+  const el = document.getElementById(`${svc}-card`);
+  const label = svc === 'uber' ? 'UBER' : 'LYFT';
+  const name  = svc === 'uber' ? 'Uber' : 'Lyft';
+
+  if (data.status === 'login-required') {
+    el.innerHTML = `<div class="result-card">
+      <div class="rc-top">
+        <span class="rc-badge ${svc}">${label}</span>
+        <div class="rc-info">
+          <div class="rc-svc-name">${name}</div>
+          <div class="rc-ride-type" style="color:var(--red)">Login required</div>
+        </div>
+      </div>
+      <div class="rc-notice">Not logged into ${name}.<br>
+        <a href="${openUrl}" target="_blank">Open ${name} to log in →</a><br>
+        Then add <strong>${svc.toUpperCase()}_COOKIES</strong> to Railway env vars.
+      </div>
+    </div>`;
+    return;
+  }
+
+  if (!data.prices || !data.prices.length) {
+    el.innerHTML = `<div class="result-card">
+      <div class="rc-top">
+        <span class="rc-badge ${svc}">${label}</span>
+        <div class="rc-info">
+          <div class="rc-svc-name">${name}</div>
+          <div class="rc-ride-type" style="color:var(--muted)">No prices found</div>
+        </div>
+      </div>
+      <div class="rc-notice"><a href="${openUrl}" target="_blank">Open ${name} →</a></div>
+    </div>`;
+    return;
+  }
+
+  const chips = data.prices.map(p => `
+    <div class="chip ${best && p.name === best.name ? 'hi' : ''}">
+      <span class="chip-name">${p.name}</span>
+      <span class="chip-price">${p.price}</span>
+    </div>`).join('');
+
+  el.innerHTML = `<div class="result-card ${isWinner ? 'winner' : ''}">
+    <div class="rc-top">
+      <span class="rc-badge ${svc}">${label}</span>
+      <div class="rc-info">
+        <div class="rc-svc-name">${name}</div>
+        <div class="rc-ride-type">${best ? best.name : rt.name}</div>
+      </div>
+      <div class="rc-right">
+        <span class="rc-price">${best ? best.price : '—'}</span>
+        <span class="rc-best-tag ${isWinner ? 'show' : ''}">BEST PRICE</span>
+      </div>
+    </div>
+    <div class="price-chips">${chips}</div>
+    <a class="book-link" href="${openUrl}" target="_blank">Open in ${name} →</a>
+  </div>`;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function findBest(prices, names) {
+  if (!prices?.length) return null;
+  for (const n of names) {
+    const m = prices.find(p => p.name.toLowerCase().includes(n.toLowerCase()));
+    if (m) return m;
+  }
+  // Fallback: cheapest
+  return prices.reduce((a, b) => minPrice(a.price) <= minPrice(b.price) ? a : b, prices[0]);
+}
+
+function minPrice(str) {
+  if (!str) return Infinity;
+  const n = str.replace(/\$/g, '').split(/[-–]/)[0].trim();
+  return parseFloat(n) || Infinity;
+}
+
+function buildUberUrl() {
+  const p = st.pickup, d = st.dropoff;
+  return `https://m.uber.com/ul/?action=setPickup` +
+    `&pickup[latitude]=${p.lat}&pickup[longitude]=${p.lng}&pickup[nickname]=${enc(p.name)}` +
+    `&dropoff[latitude]=${d.lat}&dropoff[longitude]=${d.lng}&dropoff[nickname]=${enc(d.name)}`;
+}
+
+function buildLyftUrl(rt) {
+  const p = st.pickup, d = st.dropoff;
+  return `https://ride.lyft.com/ridetype?id=${rt?.lyftId || 'lyft'}` +
+    `&pickup[latitude]=${p.lat}&pickup[longitude]=${p.lng}&pickup[address]=${enc(p.name)}` +
+    `&destination[latitude]=${d.lat}&destination[longitude]=${d.lng}&destination[address]=${enc(d.name)}`;
+}
+
+function enc(s) { return encodeURIComponent(s || ''); }
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetAll() {
+  st.pickup = null; st.dropoff = null;
+  ['pickup','dropoff'].forEach(f => {
+    document.getElementById(`${f}-input`).value = '';
+    document.getElementById(`${f}-clear`).classList.remove('show');
+    closeAc(f);
+  });
+  document.getElementById('trip-form').classList.remove('hidden');
+  document.getElementById('loading-row').classList.remove('show');
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('best-banner').classList.remove('show');
+  document.getElementById('cookie-tip').classList.remove('show');
+  document.getElementById('new-trip-btn').classList.remove('show');
+  document.getElementById('compare-btn').disabled = true;
+  document.getElementById('uber-card').innerHTML = '';
+  document.getElementById('lyft-card').innerHTML = '';
+}
+</script>
+</body>
+</html>
